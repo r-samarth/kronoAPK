@@ -108,6 +108,14 @@ enum class DeadlinePreset(val label: String) {
 // MARK: - 4. ANDROID DEADLINE NOTIFICATIONS
 class DeadlineAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == NotificationScheduler.ACTION_MONTHLY_SUMMARY) {
+            NotificationScheduler.postMonthlySummary(
+                context,
+                intent.getLongExtra(NotificationScheduler.EXTRA_SUMMARY_MONTH_START, 0L)
+            )
+            return
+        }
+
         val title = intent.getStringExtra(EXTRA_TITLE) ?: "Krono Reminder"
         val body = intent.getStringExtra(EXTRA_BODY) ?: "A task deadline is approaching."
         val notificationId = intent.getIntExtra(EXTRA_ID, 1001)
@@ -156,6 +164,14 @@ class DeadlineAlarmReceiver : BroadcastReceiver() {
 
 object NotificationScheduler {
     const val CHANNEL_ID = "krono_deadline_alerts"
+    const val ACTION_MONTHLY_SUMMARY = "dev.samarthr.krono.MONTHLY_SUMMARY"
+    const val EXTRA_SUMMARY_MONTH_START = "EXTRA_SUMMARY_MONTH_START"
+
+    private const val MONTHLY_SUMMARY_REQUEST_CODE = 720031
+    private const val MONTHLY_SUMMARY_NOTIFICATION_ID = 720032
+    private const val STORAGE_PREFERENCES = "krono_local_storage_v1"
+    private const val STORAGE_KEY = "tasks_json"
+    private const val MINUTE_MILLIS = 60_000L
 
     fun syncNotifications(context: Context, tasks: List<TaskItem>) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -192,6 +208,166 @@ object NotificationScheduler {
                 )
             }
         }
+
+        // Keep one month-end reminder scheduled, even when there are no active tasks.
+        scheduleMonthlySummary(context)
+    }
+
+    /**
+     * At 11:59 PM on the last calendar day, the receiver reads the latest local task
+     * cache, sends the monthly summary, clears that month's completed tasks, and
+     * schedules the next month. Counts are calculated at delivery time rather than
+     * frozen when the alarm is first scheduled.
+     */
+    private fun scheduleMonthlySummary(context: Context) {
+        val now = System.currentTimeMillis()
+        val currentMonthStart = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        var summaryMonthStart = currentMonthStart.clone() as Calendar
+        summaryMonthStart.add(Calendar.MONTH, 1)
+        var triggerAtMillis = summaryMonthStart.timeInMillis - MINUTE_MILLIS
+
+        // If the month's 11:59 PM reminder has passed, target the following month.
+        if (triggerAtMillis <= now) {
+            summaryMonthStart.add(Calendar.MONTH, 1)
+            currentMonthStart.add(Calendar.MONTH, 1)
+            summaryMonthStart = currentMonthStart.clone() as Calendar
+            summaryMonthStart.add(Calendar.MONTH, 1)
+            triggerAtMillis = summaryMonthStart.timeInMillis - MINUTE_MILLIS
+        }
+
+        val monthStartMillis = currentMonthStart.timeInMillis
+        val intent = Intent(context, DeadlineAlarmReceiver::class.java).apply {
+            action = ACTION_MONTHLY_SUMMARY
+            putExtra(EXTRA_SUMMARY_MONTH_START, monthStartMillis)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            MONTHLY_SUMMARY_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            }
+        } catch (_: SecurityException) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        }
+    }
+
+    fun postMonthlySummary(context: Context, requestedMonthStartMillis: Long) {
+        val now = System.currentTimeMillis()
+        val currentMonthStart = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        // Older or malformed intents fall back to the current calendar month.
+        val monthStartMillis = if (requestedMonthStartMillis > 0L) {
+            requestedMonthStartMillis
+        } else {
+            currentMonthStart
+        }
+        val nextMonthStartMillis = Calendar.getInstance().apply {
+            timeInMillis = monthStartMillis
+            add(Calendar.MONTH, 1)
+        }.timeInMillis
+
+        val preferences = context.getSharedPreferences(STORAGE_PREFERENCES, Context.MODE_PRIVATE)
+        val savedTasks = preferences.getString(STORAGE_KEY, null)
+        val savedArray = try {
+            JSONArray(savedTasks ?: "[]")
+        } catch (_: Exception) {
+            JSONArray()
+        }
+
+        var completedCount = 0
+        var overdueCount = 0
+        val remainingTasks = JSONArray()
+
+        for (index in 0 until savedArray.length()) {
+            val task = savedArray.optJSONObject(index) ?: continue
+            val isCompleted = task.optBoolean("isCompleted", false)
+            val dueAtMillis = task.optLong("dueAtMillis", Long.MAX_VALUE)
+            val updatedAtMillis = task.optLong("updatedAtMillis", 0L)
+
+            if (isCompleted &&
+                updatedAtMillis >= monthStartMillis &&
+                updatedAtMillis < nextMonthStartMillis
+            ) {
+                completedCount += 1
+            }
+            if (!isCompleted && dueAtMillis < now) {
+                overdueCount += 1
+            }
+
+            // Clear completed tasks from the month that is ending (and any older ones).
+            if (!(isCompleted && updatedAtMillis < nextMonthStartMillis)) {
+                remainingTasks.put(task)
+            }
+        }
+
+        preferences.edit().putString(STORAGE_KEY, remainingTasks.toString()).apply()
+
+        val monthName = SimpleDateFormat("MMMM", Locale.getDefault())
+            .format(Date(monthStartMillis))
+        val completedLabel = if (completedCount == 1) "task" else "tasks"
+        val overdueLabel = if (overdueCount == 1) "overdue task" else "overdue tasks"
+        val body = "Completed $completedCount $completedLabel this month. Still $overdueCount $overdueLabel pending."
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Krono Deadline Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Task deadline alerts and month-end summaries"
+                enableVibration(true)
+            }
+            manager.createNotificationChannel(channel)
+        }
+
+        val launchIntent = Intent(context, MainActivity::class.java)
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            MONTHLY_SUMMARY_NOTIFICATION_ID,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle("Krono $monthName Summary")
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+        manager.notify(MONTHLY_SUMMARY_NOTIFICATION_ID, notification)
+
+        // Schedule another one-time alarm for the next month.
+        scheduleMonthlySummary(context)
     }
 
     fun cancelForTask(context: Context, taskId: String) {
@@ -327,6 +503,21 @@ class TaskStore(context: Context) {
         preferences.edit().putString(storageKey, array.toString()).apply()
     }
 
+
+    private fun pruneCompletedTasksFromPreviousMonths() {
+        val currentMonthStart = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        tasks.removeAll { task ->
+            task.isCompleted && task.updatedAtMillis < currentMonthStart
+        }
+    }
+
     private fun loadFromDeviceStorage() {
         val raw = preferences.getString(storageKey, null)
         if (raw == null) {
@@ -367,6 +558,9 @@ class TaskStore(context: Context) {
             }
             tasks.clear()
             tasks.addAll(loadedTasks)
+            // If Krono missed a month-end while closed or after a reboot, prune
+            // completed tasks from older months the next time the app opens.
+            pruneCompletedTasksFromPreviousMonths()
             sortAndPersist()
         } catch (_: Exception) {
             // Do not crash the app if an old or damaged local cache cannot be parsed.
