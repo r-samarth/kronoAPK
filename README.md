@@ -17,6 +17,7 @@
 - **At-a-glance status** — upcoming, due within three hours, overdue, and completed states are visually distinct.
 - **Active tasks and Logbook** — switch between pending and completed tasks.
 - **Native deadline reminders** — a notification 30 minutes before a deadline and another at the deadline.
+- **Month-end summary** — at 11:59 PM on the last calendar day of each month, get a notification with completed and overdue counts; completed tasks are then cleared.
 - **Offline by design** — no account, internet connection, or cloud setup is required.
 - **Private on-device task storage** — tasks are stored locally using Android app storage.
 - **Dark, high-contrast interface** — the same Carbon, Graphite, Vermilion, Amber, Crimson, and Emerald design language as Krono for Apple platforms.
@@ -59,6 +60,18 @@ For each active task with a future deadline, Krono schedules:
 Notifications require permission. On some Android versions, exact reminders may also depend on the device's **Alarms & reminders** or **Exact alarms** setting. If exact-alarm access is unavailable, Krono falls back to an inexact alarm, which may be delayed by Android.
 
 Completing or deleting a task cancels its future deadline alarms.
+
+## Month-end cleanup and summary
+
+Krono schedules a local notification for **11:59 PM on the last day of each calendar month**.
+
+The notification is titled with the month and summarizes the locally saved task list, for example:
+
+> Completed 8 tasks this month. Still 3 overdue tasks pending.
+
+The counts above are an example. At delivery time Krono calculates the actual number of tasks marked completed during that month and the number of active tasks whose deadlines have passed. After the summary is prepared, completed tasks from that month and older months are removed from local storage. If the app was closed during month-end, older completed tasks are cleaned up when Krono is opened again.
+
+Allow notifications for Krono. Android may delay alarms if exact-alarm access is unavailable, and force-stopping the app or some device power-management behaviors can affect scheduled alarms.
 
 ## Privacy and storage
 
