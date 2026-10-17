@@ -84,6 +84,8 @@ The Android app described here saves tasks on the device in Android's private ap
 
 ## Compatibility
 
+**Current app version:** 1.1.0 (version code 2), including month-end summaries and completed-task cleanup.
+
 - **Minimum Android version:** Android 8.0 (API 26).
 - **Build JDK:** Java 17.
 - **Android SDK:** API 34.
