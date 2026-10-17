@@ -8,7 +8,7 @@
   </a>
 </p>
 
-> The APK is generated and published automatically after the Android project is merged to `main) and the GitHub Actions build succeeds. If no release is available yet, check the [Actions tab](https://github.com/r-samarth/kronoAPK/actions) for the latest build status.
+> The APK is generated and published automatically after the Android project is merged to `main` and the GitHub Actions build succeeds. If no release is available yet, check the [Actions tab](https://github.com/r-samarth/kronoAPK/actions) for the latest build status.
 
 ## Features
 
