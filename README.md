@@ -71,7 +71,7 @@ The notification is titled with the month and summarizes the locally saved task 
 
 The counts above are an example. At delivery time Krono calculates the actual number of tasks marked completed during that month and the number of active tasks whose deadlines have passed. After the summary is prepared, completed tasks from that month and older months are removed from local storage. If the app was closed during month-end, older completed tasks are cleaned up when Krono is opened again.
 
-Allow notifications for Krono. Android may delay alarms if exact-alarm access is unavailable, and force-stopping the app or some device power-management behaviors can affect scheduled alarms.
+Allow notifications for Krono. Krono restores deadline and month-end alarms after a device restart, app update, or local date/time-zone change. Android may delay alarms if exact-alarm access is unavailable. Force-stopping the app can prevent scheduled alarms until you open Krono again.
 
 ## Privacy and storage
 
