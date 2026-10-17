@@ -1,0 +1,73 @@
+name: Build and publish Krono Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-release.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build release APK
+        working-directory: android
+        run: gradle --no-daemon assembleRelease
+
+      - name: Prepare APK for download
+        run: cp android/app/build/outputs/apk/release/app-release.apk Krono-Android.apk
+
+      - name: Save APK as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Krono-Android-APK
+          path: Krono-Android.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-build-${{ github.run_number }}
+          name: Krono for Android (Build ${{ github.run_number }})
+          body: |
+            Install Krono on an Android phone by downloading **Krono-Android.apk** below.
+
+            - Tasks are saved locally on your device.
+            - No account or cloud setup is required.
+            - Allow notifications to receive deadline reminders.
+
+            This APK is generated automatically from the repository's main branch.
+          files: Krono-Android.apk
+          draft: false
+          prerelease: false
+          make_latest: true
