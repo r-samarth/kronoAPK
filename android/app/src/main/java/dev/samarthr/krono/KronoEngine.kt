@@ -172,6 +172,7 @@ object NotificationScheduler {
 
     private const val MONTHLY_SUMMARY_REQUEST_CODE = 720031
     private const val MONTHLY_SUMMARY_NOTIFICATION_ID = 720032
+    private const val LAST_MONTH_SUMMARY_KEY = "krono_last_month_summary_start"
     private const val STORAGE_PREFERENCES = "krono_local_storage_v1"
     private const val STORAGE_KEY = "tasks_json"
     private const val MINUTE_MILLIS = 60_000L
@@ -232,24 +233,40 @@ object NotificationScheduler {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
+        val monthStartMillis = currentMonthStart.timeInMillis
+        val nextMonthStart = (currentMonthStart.clone() as Calendar).apply {
+            add(Calendar.MONTH, 1)
+        }
+        val nominalTriggerAtMillis = nextMonthStart.timeInMillis - MINUTE_MILLIS
+        val preferences = context.getSharedPreferences(STORAGE_PREFERENCES, Context.MODE_PRIVATE)
+        val lastSummarizedMonthStart = preferences.getLong(LAST_MONTH_SUMMARY_KEY, 0L)
 
-        var summaryMonthStart = currentMonthStart.clone() as Calendar
-        summaryMonthStart.add(Calendar.MONTH, 1)
-        var triggerAtMillis = summaryMonthStart.timeInMillis - MINUTE_MILLIS
-
-        // If the month's 11:59 PM reminder has passed, target the following month.
-        if (triggerAtMillis <= now) {
-            summaryMonthStart.add(Calendar.MONTH, 1)
-            currentMonthStart.add(Calendar.MONTH, 1)
-            summaryMonthStart = currentMonthStart.clone() as Calendar
-            summaryMonthStart.add(Calendar.MONTH, 1)
-            triggerAtMillis = summaryMonthStart.timeInMillis - MINUTE_MILLIS
+        val summaryMonthStartMillis: Long
+        val triggerAtMillis: Long
+        if (nominalTriggerAtMillis <= now &&
+            now < nextMonthStart.timeInMillis &&
+            lastSummarizedMonthStart < monthStartMillis
+        ) {
+            // If the app changes a task just after 11:59 PM, don't overwrite an
+            // undelivered summary alarm with next month's alarm. Give this summary
+            // a short chance to run and then mark the month as summarized.
+            summaryMonthStartMillis = monthStartMillis
+            triggerAtMillis = now + 5_000L
+        } else if (nominalTriggerAtMillis <= now) {
+            // This month was already summarized (or we're past its calendar range).
+            summaryMonthStartMillis = nextMonthStart.timeInMillis
+            val followingMonthStart = (nextMonthStart.clone() as Calendar).apply {
+                add(Calendar.MONTH, 1)
+            }
+            triggerAtMillis = followingMonthStart.timeInMillis - MINUTE_MILLIS
+        } else {
+            summaryMonthStartMillis = monthStartMillis
+            triggerAtMillis = nominalTriggerAtMillis
         }
 
-        val monthStartMillis = currentMonthStart.timeInMillis
         val intent = Intent(context, DeadlineAlarmReceiver::class.java).apply {
             action = ACTION_MONTHLY_SUMMARY
-            putExtra(EXTRA_SUMMARY_MONTH_START, monthStartMillis)
+            putExtra(EXTRA_SUMMARY_MONTH_START, summaryMonthStartMillis)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
@@ -330,7 +347,10 @@ object NotificationScheduler {
             }
         }
 
-        preferences.edit().putString(STORAGE_KEY, remainingTasks.toString()).apply()
+        preferences.edit()
+            .putString(STORAGE_KEY, remainingTasks.toString())
+            .putLong(LAST_MONTH_SUMMARY_KEY, monthStartMillis)
+            .apply()
 
         // If the task screen is still in memory, update its observable list immediately too.
         context.sendBroadcast(
