@@ -13,6 +13,11 @@ on:
       - ".github/workflows/android-release.yml"
   workflow_dispatch:
 
+# Keep the newest main-branch build authoritative and avoid concurrent releases.
+concurrency:
+  group: krono-android-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
