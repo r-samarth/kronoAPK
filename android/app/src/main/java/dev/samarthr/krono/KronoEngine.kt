@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.Color
@@ -166,6 +167,8 @@ object NotificationScheduler {
     const val CHANNEL_ID = "krono_deadline_alerts"
     const val ACTION_MONTHLY_SUMMARY = "dev.samarthr.krono.MONTHLY_SUMMARY"
     const val EXTRA_SUMMARY_MONTH_START = "EXTRA_SUMMARY_MONTH_START"
+    const val ACTION_MONTHLY_CLEANUP_COMPLETE = "dev.samarthr.krono.MONTHLY_CLEANUP_COMPLETE"
+    const val EXTRA_CLEANUP_BEFORE = "EXTRA_CLEANUP_BEFORE"
 
     private const val MONTHLY_SUMMARY_REQUEST_CODE = 720031
     private const val MONTHLY_SUMMARY_NOTIFICATION_ID = 720032
@@ -329,6 +332,13 @@ object NotificationScheduler {
 
         preferences.edit().putString(STORAGE_KEY, remainingTasks.toString()).apply()
 
+        // If the task screen is still in memory, update its observable list immediately too.
+        context.sendBroadcast(
+            Intent(ACTION_MONTHLY_CLEANUP_COMPLETE)
+                .setPackage(context.packageName)
+                .putExtra(EXTRA_CLEANUP_BEFORE, nextMonthStartMillis)
+        )
+
         val monthName = SimpleDateFormat("MMMM", Locale.getDefault())
             .format(Date(monthStartMillis))
         val completedLabel = if (completedCount == 1) "task" else "tasks"
@@ -431,6 +441,17 @@ object NotificationScheduler {
 // MARK: - 5. PRIVATE ON-DEVICE TASK STORE
 class TaskStore(context: Context) {
     private val appContext = context.applicationContext
+    private val monthEndCleanupReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val cleanupBefore = intent.getLongExtra(NotificationScheduler.EXTRA_CLEANUP_BEFORE, 0L)
+            if (cleanupBefore <= 0L) return
+
+            tasks.removeAll { task ->
+                task.isCompleted && task.updatedAtMillis < cleanupBefore
+            }
+            sortAndPersist()
+        }
+    }
     private val preferences = appContext.getSharedPreferences(
         "krono_local_storage_v1",
         Context.MODE_PRIVATE
@@ -444,6 +465,12 @@ class TaskStore(context: Context) {
 
     init {
         loadFromDeviceStorage()
+        androidx.core.content.ContextCompat.registerReceiver(
+            appContext,
+            monthEndCleanupReceiver,
+            IntentFilter(NotificationScheduler.ACTION_MONTHLY_CLEANUP_COMPLETE),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     fun addTask(title: String, dueAtMillis: Long) {
