@@ -625,3 +625,53 @@ class TaskStore(context: Context) {
         }
     }
 }
+
+
+/**
+ * Android removes AlarmManager alarms when the device restarts. Restore task alarms
+ * and the next month-end summary after a reboot, app update, or local clock change.
+ */
+class KronoAlarmRestoreReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_DATE_CHANGED -> restoreScheduledAlarms(context)
+            else -> return
+        }
+    }
+
+    private fun restoreScheduledAlarms(context: Context) {
+        val preferences = context.getSharedPreferences(
+            "krono_local_storage_v1",
+            Context.MODE_PRIVATE
+        )
+        val raw = preferences.getString("tasks_json", null)
+        val tasks = mutableListOf<TaskItem>()
+
+        try {
+            val array = JSONArray(raw ?: "[]")
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val title = item.optString("title", "").trim()
+                if (title.isEmpty()) continue
+
+                tasks.add(
+                    TaskItem(
+                        id = item.optString("id", UUID.randomUUID().toString()),
+                        title = title,
+                        dueAtMillis = item.optLong("dueAtMillis", Long.MAX_VALUE),
+                        isCompleted = item.optBoolean("isCompleted", false),
+                        updatedAtMillis = item.optLong("updatedAtMillis", 0L)
+                    )
+                )
+            }
+        } catch (_: Exception) {
+            // Keep the receiver resilient if local task storage is unreadable.
+        }
+
+        NotificationScheduler.syncNotifications(context, tasks)
+    }
+}
