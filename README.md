@@ -1,97 +1,170 @@
 # Krono for Android
 
-**A minimalist, deadline-focused to-do app for Android.**
+**A minimalist, deadline-focused to-do app for Android.** Built with Kotlin and Jetpack Compose, Krono pairs a refined dark interface with quick task entry, deadline status, local persistence, and native Android reminders.
 
-Krono helps you capture tasks, set deadlines, and keep track of what is due next - with a clean dark interface inspired by the Krono design.
+<p align="center">
+  <a href="https://github.com/r-samarth/kronoAPK/releases/latest">
+    <strong>📥 Download the latest Android APK</strong>
+  </a>
+</p>
 
-## 📥 Download Krono
+> The APK is generated and published automatically after the Android project is merged to `main` and the GitHub Actions build succeeds. If no release is available yet, check the [Actions tab](https://github.com/r-samarth/kronoAPK/actions) for the latest build status.
 
-### [**Download the latest Android APK**](https://github.com/r-samarth/kronoAPK/releases/latest)
+## Features
 
-> **No APK release has been published in this repository yet.** The download link will work once the first APK is uploaded under [Releases](https://github.com/r-samarth/kronoAPK/releases). Until then, there is no installer available to download from this page.
+- **Quick task capture** — add tasks from the main screen.
+- **Flexible deadlines** — choose `+1h`, `+3h`, `Tonight`, or `Tomorrow`, or choose a custom date and time.
+- **At-a-glance status** — upcoming, due within three hours, overdue, and completed states are visually distinct.
+- **Active tasks and Logbook** — switch between pending and completed tasks.
+- **Native deadline reminders** — a notification 30 minutes before a deadline and another at the deadline.
+- **Offline by design** — no account, internet connection, or cloud setup is required.
+- **Private on-device task storage** — tasks are stored locally using Android app storage.
+- **Dark, high-contrast interface** — the same Carbon, Graphite, Vermilion, Amber, Crimson, and Emerald design language as Krono for Apple platforms.
+- **Haptic feedback** — tactile feedback for supported interactions.
 
-Download Krono only from this official repository's Releases page.
+## Download and install
 
-## ✨ Features
+### Install on your Android phone
 
-- **Quick task creation** - add tasks from the main screen.
-- **Flexible deadlines** - choose presets such as +1 hour, +3 hours, Tonight, or Tomorrow, or select a custom date and time.
-- **Clear task status** - see upcoming tasks, tasks due within 3 hours, overdue tasks, and completed tasks.
-- **Completed-task logbook** - switch between active tasks and completed tasks.
-- **Deadline reminders** - receive a notification 30 minutes before a deadline and another when the deadline arrives.
-- **Haptic feedback** - tactile feedback for supported task interactions.
-- **Works offline** - task creation and task management do not require an internet connection.
-- **On-device storage** - tasks are stored locally on your Android device. No account or cloud setup is required.
-
-## 📱 Install Krono on Android
-
-Once an APK is available in Releases:
-
-1. Open the [latest release](https://github.com/r-samarth/kronoAPK/releases/latest) on your Android phone.
-2. Download the APK file attached to the release.
-3. Tap the downloaded file to start installation.
-4. If Android asks, allow your browser or file manager to **install unknown apps** for this installation. The exact wording can vary by Android version and device manufacturer.
+1. Open the [latest Krono release](https://github.com/r-samarth/kronoAPK/releases/latest).
+2. Download **Krono-Android.apk** from the release assets.
+3. Open the downloaded APK.
+4. If Android asks, allow your browser or file manager to install unknown apps for this installation. Wording varies by Android version and manufacturer.
 5. Return to the installer and tap **Install**.
-6. Open Krono and allow notifications when prompted so deadline reminders can appear.
+6. Launch Krono and allow notifications so deadline reminders can appear.
 
-Only install APKs from a source you trust. You can disable the **install unknown apps** permission again after installation.
+Only install APKs from a source you trust. You can turn off the browser/file manager's **Install unknown apps** permission after installation.
 
-## ✅ First-time setup
+## Get started
 
-Krono is designed to work without an account.
+Krono does not require sign-up or configuration:
 
 1. Open the app.
-2. Add a task in the entry field.
-3. Choose a deadline preset or select a custom date and time.
-4. Tap the **+** button to create the task.
-5. Tap the checkbox when you complete a task.
-6. Use the Active and Logbook views to switch between pending tasks and completed tasks.
+2. Enter a task in the composer at the bottom of the screen.
+3. Select a deadline preset, or use the calendar button to pick a custom date and time.
+4. Tap the **+** button to save the task.
+5. Tap the checkbox when you complete it.
+6. Use **Active** and **Logbook** to switch between pending and completed work.
+7. Tap the **×** beside a task to delete it.
 
-## 🔔 Deadline notifications
+New installs include two sample tasks to help you explore the interface. You can complete or delete them like any other task.
 
-Krono can schedule two reminders for each active task:
+## Notifications
 
-- **30 minutes before the deadline**
-- **At the deadline**
+For each active task with a future deadline, Krono schedules:
 
-To receive these reminders, allow Krono notifications in Android settings. On some Android versions and devices, you may also need to allow alarms and reminders or exact alarms for punctual deadline alerts.
+- **Approaching Deadline (30m)** — 30 minutes before the deadline, when enough time remains.
+- **Deadline Reached** — at the task's deadline.
 
-Completed tasks are not supposed to trigger future deadline alerts.
+Notifications require permission. On some Android versions, exact reminders may also depend on the device's **Alarms & reminders** or **Exact alarms** setting. If exact-alarm access is unavailable, Krono falls back to an inexact alarm, which may be delayed by Android.
 
-## 🔒 Privacy and storage
+Completing or deleting a task cancels its future deadline alarms.
 
-The Android version described for Krono stores tasks locally on your device using Android's app storage. It does not require a Krono account or Supabase configuration.
+## Privacy and storage
 
-Please note:
+The Android app described here saves tasks on the device in Android's private app storage. It does **not** connect to Supabase and does **not** sync its task list with Krono for macOS or iPhone.
 
-- Your Android task list is local to that device; this version is not described as syncing with the Mac or iPhone versions.
-- Uninstalling Krono or clearing its app storage may delete locally stored tasks.
+- No account is required.
+- Task data is local to this Android installation.
+- Clearing Krono's app storage or uninstalling it may remove saved tasks.
 - Back up any task information you cannot afford to lose.
 
-## 🛠️ Troubleshooting
+## Compatibility
 
-**I can't find the APK download.**  
-The first release has not been published yet. Check the [Releases page](https://github.com/r-samarth/kronoAPK/releases) again after a release is available.
+- **Minimum Android version:** Android 8.0 (API 26).
+- **Build JDK:** Java 17.
+- **Android SDK:** API 34.
+- **Build system:** Gradle 8.7, Kotlin 2.0.0, Android Gradle Plugin 8.5.2.
 
-**Krono installed, but I do not receive reminders.**  
-Check that notifications are enabled for Krono. If your device has an **Alarms & reminders** or **Exact alarms** setting for the app, allow it if available. Battery-saving settings may also delay background activity on some devices.
+## Build from source
+
+### Requirements
+
+Install [Android Studio](https://developer.android.com/studio), a JDK 17, and Android SDK Platform 34.
+
+### Open in Android Studio
+
+1. Clone this repository:
+
+   ```bash
+   git clone https://github.com/r-samarth/kronoAPK.git
+   ```
+
+2. In Android Studio, choose **Open** and select the repository's **android** directory.
+3. Allow Gradle sync to finish. Use Gradle **8.7** if Android Studio asks you to select or configure a Gradle installation.
+4. Select the **app** run configuration and a connected Android phone or emulator.
+5. Press **Run**.
+
+### Build an APK from Terminal
+
+Install Gradle 8.7 and ensure your Android SDK is available, then run:
+
+```bash
+cd android
+gradle assembleDebug
+```
+
+The debug APK will be written to:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+To build the release variant locally:
+
+```bash
+gradle assembleRelease
+```
+
+The release APK is written to `android/app/build/outputs/apk/release/app-release.apk`.
+
+### Automated builds and releases
+
+GitHub Actions builds the release APK when Android source or its workflow changes reach `main). Successful main-branch builds are published to [GitHub Releases](https://github.com/r-samarth/kronoAPK/releases) as **Krono-Android.apk**. Pull requests also run a build check.
+
+The current direct-download build uses Gradle's debug signing configuration for convenient sideloading. Before publishing to a wider audience or distributing regular upgrades, configure a persistent private release keystore in GitHub Actions; do not commit private signing keys or passwords to the repository.
+
+## Troubleshooting
+
+**I cannot find the APK.**  
+The first release may still be building. Check [GitHub Actions](https://github.com/r-samarth/kronoAPK/actions), then visit [Releases](https://github.com/r-samarth/kronoAPK/releases).
+
+**I don't receive notifications.**  
+Allow notifications for Krono in Android Settings. If your device offers exact-alarm access, enable it for more punctual reminders. Some manufacturers also apply battery restrictions to background alarms.
 
 **My tasks disappeared.**  
-Krono's Android version uses local device storage. Check that you have not cleared the app's storage or uninstalled the app. Local data may not be recoverable after it has been deleted.
+Tasks are stored locally. Clearing app storage or uninstalling Krono can remove them; cloud recovery is not available in this Android version.
 
-**Will my Android tasks appear on my iPhone or Mac?**  
-The Android design described for this project stores tasks locally and does not include cross-device sync. Treat the Android and Apple task lists as separate.
+**Can Android tasks sync with my Mac or iPhone?**  
+Not currently. The Android app is local-only and uses separate on-device storage.
 
-## 📋 Compatibility
+**Android says the APK cannot be installed.**  
+Confirm that the APK finished downloading and is from the official [Krono Releases](https://github.com/r-samarth/kronoAPK/releases) page. If Android reports a signature conflict with an older test build, back up any important tasks before uninstalling the old build.
 
-The Android project specification targets **Android 8.0 (API 26) and later**. Compatibility of a published APK will be confirmed with the actual release.
+## Project structure
 
-## 👋 About Krono
+```text
+kronoAPK/
+├── .github/workflows/
+│   └── android-release.yml         # Build and publish APK
+└── android/
+    ├── settings.gradle.kts         # Gradle project setup
+    ├── build.gradle.kts             # Root Android/Kotlin plugins
+    ├── gradle.properties
+    └── app/
+        ├── build.gradle.kts         # Android app and dependencies
+        └── src/main/
+            ├── AndroidManifest.xml
+            └── java/dev/samarthr/krono/
+                ├── MainActivity.kt  # App entry point and permissions
+                ├── KronoEngine.kt  # Task model, local storage and alarms
+                └── KronoViews.kt   # Jetpack Compose interface
+```
+
+## Feedback and contributions
+
+Found a bug or have an idea? [Open an issue](https://github.com/r-samarth/kronoAPK/issues) with your Android version, device model, steps to reproduce, and any relevant error message. Please don't post private task data.
+
+---
 
 Built by [Samarth](https://github.com/r-samarth).
-
-- **GitHub repository:** [r-samarth/kronoAPK](https://github.com/r-samarth/kronoAPK)
-- **Releases and downloads:** [Krono for Android Releases](https://github.com/r-samarth/kronoAPK/releases)
-- **Report a problem:** [Open a GitHub issue](https://github.com/r-samarth/kronoAPK/issues)
-
-Thanks for checking out Krono!
