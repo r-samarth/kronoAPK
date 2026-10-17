@@ -473,6 +473,14 @@ class TaskStore(context: Context) {
         )
     }
 
+    fun close() {
+        try {
+            appContext.unregisterReceiver(monthEndCleanupReceiver)
+        } catch (_: IllegalArgumentException) {
+            // Already unregistered during Activity teardown.
+        }
+    }
+
     fun addTask(title: String, dueAtMillis: Long) {
         val trimmedTitle = title.trim()
         if (trimmedTitle.isEmpty()) return
