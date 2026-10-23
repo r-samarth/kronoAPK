@@ -72,6 +72,17 @@ data class TaskItem(
     }
 }
 
+// MARK: - Saved Monthly Notification History
+data class MonthlySummaryRecord(
+    val monthStartMillis: Long,
+    val completedCount: Int,
+    val pendingCount: Int,
+    val progressPercentage: Int,
+    val notificationTitle: String,
+    val notificationBody: String,
+    val savedAtMillis: Long
+)
+
 // MARK: - 3. QUICK DEADLINE PRESETS
 enum class DeadlinePreset(val label: String) {
     ONE_HOUR("+1h"),
@@ -175,6 +186,7 @@ object NotificationScheduler {
     private const val LAST_MONTH_SUMMARY_KEY = "krono_last_month_summary_start"
     private const val STORAGE_PREFERENCES = "krono_local_storage_v1"
     private const val STORAGE_KEY = "tasks_json"
+    private const val MONTHLY_SUMMARY_ARCHIVE_KEY = "monthly_summary_archive_json"
     private const val MINUTE_MILLIS = 60_000L
 
     fun syncNotifications(context: Context, tasks: List<TaskItem>) {
@@ -212,6 +224,9 @@ object NotificationScheduler {
                 )
             }
         }
+
+        // Save a rolling snapshot so the current month's history is available before month-end.
+        saveCurrentMonthSnapshot(context, tasks)
 
         // Keep one month-end reminder scheduled, even when there are no active tasks.
         scheduleMonthlySummary(context)
@@ -363,7 +378,28 @@ object NotificationScheduler {
             .format(Date(monthStartMillis))
         val completedLabel = if (completedCount == 1) "task" else "tasks"
         val overdueLabel = if (overdueCount == 1) "overdue task" else "overdue tasks"
-        val body = "Completed $completedCount $completedLabel this month. Still $overdueCount $overdueLabel pending."
+        val summaryTotal = completedCount + overdueCount
+        val progressPercentage = if (summaryTotal == 0) {
+            0
+        } else {
+            ((completedCount * 100.0) / summaryTotal).toInt()
+        }
+        val notificationTitle = "Krono $monthName Summary"
+        val body = "Completed $completedCount $completedLabel this month. Still $overdueCount $overdueLabel pending. Progress: $progressPercentage%."
+
+        // Save the delivered notification locally before completed tasks are discarded permanently.
+        saveMonthlySummary(
+            context,
+            MonthlySummaryRecord(
+                monthStartMillis = monthStartMillis,
+                completedCount = completedCount,
+                pendingCount = overdueCount,
+                progressPercentage = progressPercentage,
+                notificationTitle = notificationTitle,
+                notificationBody = body,
+                savedAtMillis = now
+            )
+        )
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -387,7 +423,7 @@ object NotificationScheduler {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("Krono $monthName Summary")
+            .setContentTitle(notificationTitle)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -398,6 +434,110 @@ object NotificationScheduler {
 
         // Schedule another one-time alarm for the next month.
         scheduleMonthlySummary(context)
+    }
+
+    /** Returns saved monthly summaries, newest month first. All records remain on this device. */
+    fun loadMonthlySummaries(context: Context): List<MonthlySummaryRecord> {
+        val preferences = context.getSharedPreferences(STORAGE_PREFERENCES, Context.MODE_PRIVATE)
+        val raw = preferences.getString(MONTHLY_SUMMARY_ARCHIVE_KEY, "[]") ?: "[]"
+        val array = try {
+            JSONArray(raw)
+        } catch (_: Exception) {
+            JSONArray()
+        }
+
+        val records = mutableListOf<MonthlySummaryRecord>()
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val monthStart = item.optLong("monthStartMillis", 0L)
+            if (monthStart <= 0L) continue
+            records.add(
+                MonthlySummaryRecord(
+                    monthStartMillis = monthStart,
+                    completedCount = item.optInt("completedCount", 0),
+                    pendingCount = item.optInt("pendingCount", 0),
+                    progressPercentage = item.optInt("progressPercentage", 0).coerceIn(0, 100),
+                    notificationTitle = item.optString("notificationTitle", "Krono Monthly Summary"),
+                    notificationBody = item.optString("notificationBody", ""),
+                    savedAtMillis = item.optLong("savedAtMillis", monthStart)
+                )
+            )
+        }
+        return records.sortedByDescending { it.monthStartMillis }
+    }
+
+    /** Updates a month's saved notification without creating duplicate month entries. */
+    private fun saveMonthlySummary(context: Context, record: MonthlySummaryRecord) {
+        val records = loadMonthlySummaries(context)
+            .filterNot { it.monthStartMillis == record.monthStartMillis }
+            .toMutableList()
+        records.add(record)
+        records.sortByDescending { it.monthStartMillis }
+
+        val array = JSONArray()
+        records.forEach { item ->
+            array.put(
+                JSONObject().apply {
+                    put("monthStartMillis", item.monthStartMillis)
+                    put("completedCount", item.completedCount)
+                    put("pendingCount", item.pendingCount)
+                    put("progressPercentage", item.progressPercentage)
+                    put("notificationTitle", item.notificationTitle)
+                    put("notificationBody", item.notificationBody)
+                    put("savedAtMillis", item.savedAtMillis)
+                }
+            )
+        }
+
+        context.getSharedPreferences(STORAGE_PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .putString(MONTHLY_SUMMARY_ARCHIVE_KEY, array.toString())
+            .apply()
+    }
+
+    /** Keeps the current month's card up to date whenever local task state changes. */
+    private fun saveCurrentMonthSnapshot(context: Context, tasks: List<TaskItem>) {
+        val now = System.currentTimeMillis()
+        val currentMonth = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val monthStart = currentMonth.timeInMillis
+        val nextMonthStart = (currentMonth.clone() as Calendar).apply {
+            add(Calendar.MONTH, 1)
+        }.timeInMillis
+
+        val completedCount = tasks.count {
+            it.isCompleted &&
+                it.updatedAtMillis >= monthStart &&
+                it.updatedAtMillis < nextMonthStart
+        }
+        val pendingCount = tasks.count { !it.isCompleted && it.dueAtMillis < now }
+        val total = completedCount + pendingCount
+        val progress = if (total == 0) 0 else ((completedCount * 100.0) / total).toInt()
+        val monthName = SimpleDateFormat("MMMM", Locale.getDefault())
+            .format(Date(monthStart))
+        val completedLabel = if (completedCount == 1) "task" else "tasks"
+        val pendingLabel = if (pendingCount == 1) "overdue task" else "overdue tasks"
+        val title = "Krono $monthName Summary"
+        val body = "Completed $completedCount $completedLabel this month. Still $pendingCount $pendingLabel pending. Progress: $progress%."
+
+        saveMonthlySummary(
+            context,
+            MonthlySummaryRecord(
+                monthStartMillis = monthStart,
+                completedCount = completedCount,
+                pendingCount = pendingCount,
+                progressPercentage = progress,
+                notificationTitle = title,
+                notificationBody = body,
+                savedAtMillis = now
+            )
+        )
     }
 
     fun cancelForTask(context: Context, taskId: String) {
