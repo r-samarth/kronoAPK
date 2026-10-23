@@ -183,6 +183,7 @@ fun KronoAndroidScreen(store: TaskStore) {
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .clickable {
+                            // The Android creator credit links to this Android-specific repository.
                             runCatching {
                                 uriHandler.openUri("https://github.com/r-samarth/kronoAPK")
                             }
