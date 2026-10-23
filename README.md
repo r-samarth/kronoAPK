@@ -19,7 +19,7 @@
 - **Native deadline reminders** — a notification 30 minutes before a deadline and another at the deadline.
 - **Month-end summary** — at 11:59 PM on the last calendar day of each month, get a notification with completed and overdue counts plus a completion-progress percentage; completed tasks are then cleared.
 - **Monthly notification history** — open the clock-history button in the app to view saved month-by-month summaries, completion percentages, notification text, and last-updated times.
-- **Creator watermark** — tap “Built by Sam / Open source” to open the Krono GitHub repository.
+- **Creator watermark** — tap “Built by Sam / Open source” to open the Android repository: https://github.com/r-samarth/kronoAPK.
 - **Krono app branding** — app logo shown in the app header.
 - **Offline by design** — no account, internet connection, or cloud setup is required.
 - **Private on-device task storage** — tasks and monthly summary history are stored locally using Android app storage. No Supabase connection is added to Android.
@@ -93,7 +93,7 @@ The Android app described here saves tasks on the device in Android's private ap
 
 ## Compatibility
 
-**Current app version:** 1.2.0 (version code 3), including monthly notification history, progress percentages, app-header branding, and completed-task cleanup.
+**Current app version:** 1.2.1 (version code 4), including monthly notification history, progress percentages, app-header branding, and completed-task cleanup.
 
 - **Minimum Android version:** Android 8.0 (API 26).
 - **Build JDK:** Java 17.
