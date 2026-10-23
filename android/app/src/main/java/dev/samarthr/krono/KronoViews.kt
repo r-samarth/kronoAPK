@@ -184,7 +184,7 @@ fun KronoAndroidScreen(store: TaskStore) {
                         .clip(RoundedCornerShape(6.dp))
                         .clickable {
                             runCatching {
-                                uriHandler.openUri("https://github.com/r-samarth/Krono")
+                                uriHandler.openUri("https://github.com/r-samarth/kronoAPK")
                             }
                         }
                         .padding(horizontal = 2.dp, vertical = 3.dp),
