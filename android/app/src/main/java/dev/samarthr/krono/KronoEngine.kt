@@ -655,6 +655,12 @@ class TaskStore(context: Context) {
         sortAndPersist()
     }
 
+    /** Reloads the device-only task cache without any cloud/database access. */
+    fun refreshLocalState() {
+        tasks.clear()
+        loadFromDeviceStorage()
+    }
+
     fun toggleTask(task: TaskItem) {
         val index = tasks.indexOfFirst { it.id == task.id }
         if (index == -1) return
