@@ -22,8 +22,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +40,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -60,7 +69,10 @@ fun KronoAndroidScreen(store: TaskStore) {
     var selectedPreset by remember { mutableStateOf<DeadlinePreset?>(DeadlinePreset.THREE_HOURS) }
     var customDeadlineMillis by remember { mutableStateOf<Long?>(null) }
     var showCompletedOnly by remember { mutableStateOf(false) }
+    var showMonthlyHistory by remember { mutableStateOf(false) }
+    var showLocalInfo by remember { mutableStateOf(false) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val uriHandler = LocalUriHandler.current
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -127,35 +139,103 @@ fun KronoAndroidScreen(store: TaskStore) {
             .systemBarsPadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header and Active/Logbook switch
+            // Shared Krono header: logo, creator watermark, monthly archive and local actions.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .padding(top = 18.dp, bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 16.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Image(
+                    painter = painterResource(id = R.mipmap.ic_launcher),
+                    contentDescription = "Krono logo",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "KRONO // ANDROID",
+                        text = "KRONO // MOBILE",
                         color = KronoTheme.accent,
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.4.sp
+                        letterSpacing = 1.25.sp,
+                        maxLines = 1
                     )
                     Text(
-                        text = "${store.activeCount} Active",
+                        text = "${store.activeCount} Active Tasks",
                         color = KronoTheme.inkPrimary,
-                        fontSize = 27.sp,
+                        fontSize = 21.sp,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable {
+                            runCatching {
+                                uriHandler.openUri("https://github.com/r-samarth/Krono")
+                            }
+                        }
+                        .padding(horizontal = 2.dp, vertical = 3.dp),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    Text(
+                        text = "Built by Sam",
+                        color = KronoTheme.inkMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "Open source",
+                        color = KronoTheme.inkMuted.copy(alpha = 0.72f),
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1
                     )
                 }
 
+                HeaderIconButton(
+                    imageVector = Icons.Outlined.History,
+                    contentDescription = "Monthly notification history",
+                    onClick = { showMonthlyHistory = true }
+                )
+                HeaderIconButton(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "Local storage information",
+                    onClick = { showLocalInfo = true }
+                )
+                HeaderIconButton(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Refresh local tasks",
+                    onClick = {
+                        store.refreshLocalState()
+                        nowMillis = System.currentTimeMillis()
+                    }
+                )
+            }
+
+            // Keep the existing Active/Logbook switch, just below the header.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 14.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
                     modifier = Modifier
                         .clip(CircleShape)
@@ -383,6 +463,294 @@ fun KronoAndroidScreen(store: TaskStore) {
                 }
             }
         }
+    }
+
+    if (showMonthlyHistory) {
+        MonthlySummaryHistoryDialog(onDismiss = { showMonthlyHistory = false })
+    }
+
+    if (showLocalInfo) {
+        AlertDialog(
+            onDismissRequest = { showLocalInfo = false },
+            containerColor = KronoTheme.surface,
+            title = {
+                Text(
+                    text = "Krono on this device",
+                    color = KronoTheme.inkPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Your tasks, reminders and monthly summary history are stored privately on this Android device. No account or cloud connection is used. Uninstalling Krono or clearing its app data may erase this information.",
+                    color = KronoTheme.inkMuted
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showLocalInfo = false }) {
+                    Text("Done", color = KronoTheme.accent)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun HeaderIconButton(
+    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(KronoTheme.surface)
+            .border(1.dp, KronoTheme.border, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            tint = KronoTheme.inkMuted,
+            modifier = Modifier.size(17.dp)
+        )
+    }
+}
+
+@Composable
+private fun MonthlySummaryHistoryDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var summaries by remember { mutableStateOf(emptyList<MonthlySummaryRecord>()) }
+
+    LaunchedEffect(Unit) {
+        summaries = NotificationScheduler.loadMonthlySummaries(context)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 20.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(KronoTheme.canvas)
+                .border(1.dp, KronoTheme.border, RoundedCornerShape(24.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = "MONTHLY ARCHIVE",
+                        color = KronoTheme.accent,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.25.sp
+                    )
+                    Text(
+                        text = "Notification History",
+                        color = KronoTheme.inkPrimary,
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = "Done",
+                    color = KronoTheme.accent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onDismiss)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(KronoTheme.border)
+            )
+
+            if (summaries.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.History,
+                            contentDescription = null,
+                            tint = KronoTheme.accent,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            text = "No monthly summaries yet",
+                            color = KronoTheme.inkPrimary,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Krono will save this month's summary here and update it as your tasks change. Previous Android notifications cannot be imported retroactively, so history begins when this version is installed.",
+                            color = KronoTheme.inkMuted,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(top = 14.dp, bottom = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(summaries, key = { it.monthStartMillis }) { summary ->
+                        MonthlySummaryCard(summary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthlySummaryCard(summary: MonthlySummaryRecord) {
+    val monthName = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+        .format(Date(summary.monthStartMillis))
+    val updatedText = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+        .format(Date(summary.savedAtMillis))
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(KronoTheme.surface)
+            .border(1.dp, KronoTheme.border, RoundedCornerShape(16.dp))
+            .padding(15.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = monthName,
+                color = KronoTheme.inkPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "${summary.progressPercentage}%",
+                color = KronoTheme.completed,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MonthlyMetricTile(
+                modifier = Modifier.weight(1f),
+                label = "COMPLETED",
+                count = summary.completedCount,
+                color = KronoTheme.completed
+            )
+            MonthlyMetricTile(
+                modifier = Modifier.weight(1f),
+                label = "PENDING OVERDUE",
+                count = summary.pendingCount,
+                color = KronoTheme.warning
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Progress", color = KronoTheme.inkMuted, fontSize = 11.sp)
+                Spacer(modifier = Modifier.weight(1f))
+                Text("Completion estimate", color = KronoTheme.inkMuted, fontSize = 10.sp)
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(CircleShape)
+                    .background(KronoTheme.border)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(summary.progressPercentage.coerceIn(0, 100) / 100f)
+                        .fillMaxHeight()
+                        .background(KronoTheme.completed)
+                )
+            }
+        }
+
+        Text(
+            text = summary.notificationTitle,
+            color = KronoTheme.inkPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = summary.notificationBody,
+            color = KronoTheme.inkMuted,
+            fontSize = 12.sp,
+            lineHeight = 18.sp
+        )
+        Text(
+            text = "Last updated $updatedText",
+            color = KronoTheme.inkMuted.copy(alpha = 0.8f),
+            fontSize = 10.sp
+        )
+    }
+}
+
+@Composable
+private fun MonthlyMetricTile(
+    modifier: Modifier = Modifier,
+    label: String,
+    count: Int,
+    color: Color
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(11.dp))
+            .background(KronoTheme.canvas)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Text(
+            text = label,
+            color = KronoTheme.inkMuted,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = count.toString(),
+            color = color,
+            fontSize = 23.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+        )
     }
 }
 
