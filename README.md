@@ -17,9 +17,12 @@
 - **At-a-glance status** — upcoming, due within three hours, overdue, and completed states are visually distinct.
 - **Active tasks and Logbook** — switch between pending and completed tasks.
 - **Native deadline reminders** — a notification 30 minutes before a deadline and another at the deadline.
-- **Month-end summary** — at 11:59 PM on the last calendar day of each month, get a notification with completed and overdue counts; completed tasks are then cleared.
+- **Month-end summary** — at 11:59 PM on the last calendar day of each month, get a notification with completed and overdue counts plus a completion-progress percentage; completed tasks are then cleared.
+- **Monthly notification history** — open the clock-history button in the app to view saved month-by-month summaries, completion percentages, notification text, and last-updated times.
+- **Creator watermark** — tap “Built by Sam / Open source” to open the Krono GitHub repository.
+- **Krono app branding** — app logo shown in the app header.
 - **Offline by design** — no account, internet connection, or cloud setup is required.
-- **Private on-device task storage** — tasks are stored locally using Android app storage.
+- **Private on-device task storage** — tasks and monthly summary history are stored locally using Android app storage. No Supabase connection is added to Android.
 - **Dark, high-contrast interface** — the same Carbon, Graphite, Vermilion, Amber, Crimson, and Emerald design language as Krono for Apple platforms.
 - **Haptic feedback** — tactile feedback for supported interactions.
 
@@ -65,11 +68,17 @@ Completing or deleting a task cancels its future deadline alarms.
 
 Krono schedules a local notification for **11:59 PM on the last day of each calendar month**.
 
-The notification is titled with the month and summarizes the locally saved task list, for example:
+The notification is titled with the month and summarizes the locally saved task list, including a progress percentage, for example:
 
-> Completed 8 tasks this month. Still 3 overdue tasks pending.
+> Completed 8 tasks this month. Still 3 overdue tasks pending. Progress: 73%.
 
-The counts above are an example. At delivery time Krono calculates the actual number of tasks marked completed during that month and the number of active tasks whose deadlines have passed. After the summary is prepared, completed tasks from that month and older months are removed from local storage. If the app was closed during month-end, older completed tasks are cleaned up when Krono is opened again.
+The counts above are an example. Krono calculates the actual number of tasks marked completed during that month and the number of active tasks whose deadlines have passed. Progress is calculated from completed tasks divided by completed plus pending-overdue tasks. After the summary is prepared, completed tasks from that month and older months are removed from local task storage.
+
+### Monthly notification history
+
+Tap the **clock-history icon** in the app header to open the Monthly Archive. Krono stores one locally saved summary per month, ordered newest first, including completed count, pending-overdue count, progress percentage, the notification title/body, and the last-updated time. The current month's entry is updated as task data changes and the delivered month-end notification is saved to the same entry.
+
+Android does not let Krono import notifications that were already dismissed before the history feature was installed. New history entries accumulate from this version onward. Uninstalling Krono or clearing app data removes the local archive too.
 
 Allow notifications for Krono. Krono restores deadline and month-end alarms after a device restart, app update, or local date/time-zone change. Android may delay alarms if exact-alarm access is unavailable. Force-stopping the app can prevent scheduled alarms until you open Krono again.
 
@@ -84,7 +93,7 @@ The Android app described here saves tasks on the device in Android's private ap
 
 ## Compatibility
 
-**Current app version:** 1.1.0 (version code 2), including month-end summaries and completed-task cleanup.
+**Current app version:** 1.2.0 (version code 3), including monthly notification history, progress percentages, app-header branding, and completed-task cleanup.
 
 - **Minimum Android version:** Android 8.0 (API 26).
 - **Build JDK:** Java 17.
