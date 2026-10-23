@@ -585,7 +585,8 @@ private fun MonthlySummaryHistoryDialog(onDismiss: () -> Unit) {
             if (summaries.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .weight(1f)
                         .padding(20.dp),
                     contentAlignment = Alignment.Center
                 ) {
