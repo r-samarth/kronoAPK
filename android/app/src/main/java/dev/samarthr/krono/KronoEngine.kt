@@ -21,6 +21,7 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 // MARK: - 1. KRONO DESIGN TOKENS
 object KronoTheme {
@@ -382,7 +383,7 @@ object NotificationScheduler {
         val progressPercentage = if (summaryTotal == 0) {
             0
         } else {
-            ((completedCount * 100.0) / summaryTotal).toInt()
+            ((completedCount * 100.0) / summaryTotal).roundToInt()
         }
         val notificationTitle = "Krono $monthName Summary"
         val body = "Completed $completedCount $completedLabel this month. Still $overdueCount $overdueLabel pending. Progress: $progressPercentage%."
@@ -468,7 +469,19 @@ object NotificationScheduler {
 
     /** Updates a month's saved notification without creating duplicate month entries. */
     private fun saveMonthlySummary(context: Context, record: MonthlySummaryRecord) {
-        val records = loadMonthlySummaries(context)
+        val savedRecords = loadMonthlySummaries(context)
+        val existing = savedRecords.firstOrNull { it.monthStartMillis == record.monthStartMillis }
+        if (existing != null &&
+            existing.completedCount == record.completedCount &&
+            existing.pendingCount == record.pendingCount &&
+            existing.progressPercentage == record.progressPercentage &&
+            existing.notificationTitle == record.notificationTitle &&
+            existing.notificationBody == record.notificationBody
+        ) {
+            return
+        }
+
+        val records = savedRecords
             .filterNot { it.monthStartMillis == record.monthStartMillis }
             .toMutableList()
         records.add(record)
@@ -518,7 +531,7 @@ object NotificationScheduler {
         }
         val pendingCount = tasks.count { !it.isCompleted && it.dueAtMillis < now }
         val total = completedCount + pendingCount
-        val progress = if (total == 0) 0 else ((completedCount * 100.0) / total).toInt()
+        val progress = if (total == 0) 0 else ((completedCount * 100.0) / total).roundToInt()
         val monthName = SimpleDateFormat("MMMM", Locale.getDefault())
             .format(Date(monthStart))
         val completedLabel = if (completedCount == 1) "task" else "tasks"
